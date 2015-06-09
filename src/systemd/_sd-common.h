@@ -24,7 +24,7 @@
 
 /* This is a private header; never even think of including this directly! */
 
-#if __INCLUDE_LEVEL__ <= 1
+#if __INCLUDE_LEVEL__ <= 1 && !defined(__COVERITY__)
 #error "Do not include _sd-common.h directly; it is a private header."
 #endif
 
