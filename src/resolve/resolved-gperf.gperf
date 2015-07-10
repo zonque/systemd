@@ -17,3 +17,4 @@ struct ConfigPerfItem;
 Resolve.DNS,          config_parse_dnsv,    DNS_SERVER_SYSTEM,   0
 Resolve.FallbackDNS,  config_parse_dnsv,    DNS_SERVER_FALLBACK, 0
 Resolve.LLMNR,        config_parse_support, 0,                   offsetof(Manager, llmnr_support)
+Resolve.MulticastDNS, config_parse_support, 0,                   offsetof(Manager, mdns_support)

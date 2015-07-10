@@ -58,6 +58,7 @@ struct Link {
         DnsServer *current_dns_server;
 
         Support llmnr_support;
+        Support mdns_support;
 
         DnsScope *unicast_scope;
         DnsScope *llmnr_ipv4_scope;
