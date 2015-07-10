@@ -113,6 +113,22 @@
         global setting is on.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>MulticastDNS=</varname></term>
+        <listitem><para>Takes a boolean argument or
+        <literal>resolve</literal>. Controls Multicast Domain Name Service
+        (mDNS) support (<ulink
+        url="https://tools.ietf.org/html/rfc6762">RFC 6762</ulink>) on
+        the local host. If true enables full mDNS responder and
+        resolver support. If false disable both. If set to
+        <literal>resolve</literal> only resolving support is enabled,
+        but responding is disabled. Note that
+        <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        also maintains per-interface MulticastDNS settings. mDNS
+        will be enabled on an interface only if the per-interface
+        and the global setting is on.</para></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 

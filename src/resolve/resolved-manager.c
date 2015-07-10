@@ -39,6 +39,7 @@
 #include "resolved-bus.h"
 #include "resolved-manager.h"
 #include "resolved-llmnr.h"
+#include "resolved-mdns.h"
 
 #define SEND_TIMEOUT_USEC (200 * USEC_PER_MSEC)
 
@@ -467,9 +468,11 @@ int manager_new(Manager **ret) {
 
         m->llmnr_ipv4_udp_fd = m->llmnr_ipv6_udp_fd = -1;
         m->llmnr_ipv4_tcp_fd = m->llmnr_ipv6_tcp_fd = -1;
+        m->mdns_ipv4_fd = m->mdns_ipv6_fd = -1;
         m->hostname_fd = -1;
 
         m->llmnr_support = SUPPORT_YES;
+        m->mdns_support = SUPPORT_YES;
         m->read_resolv_conf = true;
 
         r = manager_parse_dns_server(m, DNS_SERVER_FALLBACK, DNS_SERVERS);
@@ -522,6 +525,10 @@ int manager_start(Manager *m) {
         if (r < 0)
                 return r;
 
+        r = manager_mdns_start(m);
+        if (r < 0)
+                return r;
+
         return 0;
 }
 
@@ -549,6 +556,7 @@ Manager *manager_free(Manager *m) {
         sd_network_monitor_unref(m->network_monitor);
 
         manager_llmnr_stop(m);
+        manager_mdns_stop(m);
 
         sd_bus_slot_unref(m->prepare_for_sleep_slot);
         sd_event_source_unref(m->bus_retry_event_source);
