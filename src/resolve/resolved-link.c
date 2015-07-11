@@ -47,6 +47,7 @@ int link_new(Manager *m, Link **ret, int ifindex) {
 
         l->ifindex = ifindex;
         l->llmnr_support = SUPPORT_YES;
+        l->mdns_support = SUPPORT_YES;
 
         r = hashmap_put(m->links, INT_TO_PTR(ifindex), l);
         if (r < 0)
@@ -238,26 +239,46 @@ static int link_update_llmnr_support(Link *l) {
         assert(l);
 
         r = sd_network_link_get_llmnr(l->ifindex, &b);
-        if (r < 0)
-                goto clear;
+        if (r < 0) {
+                l->llmnr_support = SUPPORT_YES;
+                return r;
+        }
 
         r = parse_boolean(b);
         if (r < 0) {
                 if (streq(b, "resolve"))
                         l->llmnr_support = SUPPORT_RESOLVE;
-                else
-                        goto clear;
+                else {
+                        l->llmnr_support = SUPPORT_YES;
+                        return r;
+                }
 
         } else if (r > 0)
                 l->llmnr_support = SUPPORT_YES;
         else
                 l->llmnr_support = SUPPORT_NO;
 
-        return 0;
+        r = sd_network_link_get_mdns(l->ifindex, &b);
+        if (r < 0) {
+                l->mdns_support = SUPPORT_YES;
+                return r;
+        }
 
-clear:
-        l->llmnr_support = SUPPORT_YES;
-        return r;
+        r = parse_boolean(b);
+        if (r < 0) {
+                if (streq(b, "resolve"))
+                        l->mdns_support = SUPPORT_RESOLVE;
+                else {
+                        l->mdns_support = SUPPORT_YES;
+                        return r;
+                }
+
+        } else if (r > 0)
+                l->mdns_support = SUPPORT_YES;
+        else
+                l->mdns_support = SUPPORT_NO;
+
+        return 0;
 }
 
 static int link_update_domains(Link *l) {
