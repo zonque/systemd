@@ -189,6 +189,30 @@ _public_ int sd_network_link_get_llmnr(int ifindex, char **llmnr) {
         return 0;
 }
 
+_public_ int sd_network_link_get_mdns(int ifindex, char **mdns) {
+        _cleanup_free_ char *s = NULL, *p = NULL;
+        int r;
+
+        assert_return(ifindex > 0, -EINVAL);
+        assert_return(mdns, -EINVAL);
+
+        if (asprintf(&p, "/run/systemd/netif/links/%d", ifindex) < 0)
+                return -ENOMEM;
+
+        r = parse_env_file(p, NEWLINE, "MulticastDNS", &s, NULL);
+        if (r == -ENOENT)
+                return -ENODATA;
+        if (r < 0)
+                return r;
+        if (isempty(s))
+                return -ENODATA;
+
+        *mdns = s;
+        s = NULL;
+
+        return 0;
+}
+
 _public_ int sd_network_link_get_lldp(int ifindex, char **lldp) {
         _cleanup_free_ char *s = NULL, *p = NULL;
         size_t size;

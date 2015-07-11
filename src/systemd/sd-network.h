@@ -104,12 +104,13 @@ int sd_network_link_get_dns(int ifindex, char ***addr);
  * representations of IP addresses */
 int sd_network_link_get_ntp(int ifindex, char ***addr);
 
-/* Indicates whether or not LLMNR should be enabled for the link
+/* Indicates whether or not LLMNR/mDNS should be enabled for the link
  * Possible levels of support: yes, no, resolve
  * Possible return codes:
  *   -ENODATA: networkd is not aware of the link
  */
 int sd_network_link_get_llmnr(int ifindex, char **llmnr);
+int sd_network_link_get_mdns(int ifindex, char **mdns);
 
 int sd_network_link_get_lldp(int ifindex, char **lldp);
 

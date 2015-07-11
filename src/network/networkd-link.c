@@ -2586,6 +2586,9 @@ int link_save(Link *link) {
 
                 fprintf(f, "LLMNR=%s\n",
                         resolve_support_to_string(link->network->llmnr));
+
+                fprintf(f, "MulticastDNS=%s\n",
+                        resolve_support_to_string(link->network->mdns));
         }
 
         if (!hashmap_isempty(link->bound_to_links)) {
