@@ -284,6 +284,15 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>MulticastDNS=</varname></term>
+          <listitem>
+            <para>A boolean or <literal>resolve</literal>. When true, enables
+            Multicast Domain Name System (mDNS) on the link, when set to
+            <literal>resolve</literal> only resolution is enabled, but not
+            announcement. Defaults to true.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>LLDP=</varname></term>
           <listitem>
             <para>A boolean. When true, enables LLDP link receive support.

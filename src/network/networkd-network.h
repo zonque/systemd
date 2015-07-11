@@ -144,6 +144,7 @@ struct Network {
         char **domains, **dns, **ntp, **bind_carrier;
 
         ResolveSupport llmnr;
+        ResolveSupport mdns;
 
         LIST_FIELDS(Network, networks);
 };
