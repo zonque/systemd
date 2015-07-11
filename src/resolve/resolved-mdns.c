@@ -69,7 +69,67 @@ eaddrinuse:
 }
 
 static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        /* TODO */
+        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        Manager *m = userdata;
+        DnsScope *scope;
+        int r;
+
+        r = manager_recv(m, fd, DNS_PROTOCOL_MDNS, &p);
+        if (r <= 0)
+                return r;
+
+        scope = manager_find_scope(m, p);
+        if (!scope) {
+                log_warning("Got mDNS UDP packet on unknown scope. Ignoring.");
+                return 0;
+        }
+
+        if (dns_packet_validate_reply(p) > 0) {
+                unsigned i;
+
+                log_debug("Got mDNS reply packet for id %u", DNS_PACKET_ID(p));
+
+                dns_scope_check_conflicts(scope, p);
+
+                /*
+                 * mDNS is different from regular DNS and LLMNR with regard to handling responses.
+                 * While on other protocols. we can ignore every answer that doesn't match a question
+                 * we broadcast earlier, RFC6762, section 18.1 recommends looking at and caching all
+                 * incoming information, regardless of the DNS packet ID.
+                 *
+                 * Hence, extract the packet here, and assemble a question that matches the answers
+                 * we got. Then try to find a pending transaction that is waiting for that information,
+                 * and complete it if we have any. Otherwise, just store the new information in the
+                 * scope's cache.
+                 */
+                r = dns_packet_extract(p);
+                if (r < 0) {
+                        log_debug("mDNS packet extraction failed.");
+                        return 0;
+                }
+
+                for (i = 0; i < p->answer->n_rrs; i++) {
+                        DnsResourceRecord *rr;
+                        DnsTransaction *t;
+
+                        rr = p->answer->items[i].rr;
+
+                        t = dns_scope_find_transaction(scope, rr->key, false);
+                        log_error(" >>> %s() t %p\n", __func__, t);
+
+                        if (t)
+                                dns_transaction_process_reply(t, p);
+                }
+
+                dns_cache_put(&scope->cache, NULL, DNS_PACKET_RCODE(p), p->answer, DNS_PACKET_ANCOUNT(p), 0, p->family, &p->sender);
+
+        } else if (dns_packet_validate_query(p) > 0)  {
+                log_debug("Got mDNS query packet for id %u", DNS_PACKET_ID(p));
+
+                dns_scope_process_query(scope, NULL, p);
+        } else
+                log_debug("Invalid mDNS UDP packet.");
+
         return 0;
 }
 
