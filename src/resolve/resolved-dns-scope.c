@@ -29,6 +29,7 @@
 #include "hostname-util.h"
 #include "dns-domain.h"
 #include "resolved-llmnr.h"
+#include "resolved-mdns.h"
 #include "resolved-dns-scope.h"
 
 #define MULTICAST_RATELIMIT_INTERVAL_USEC (1*USEC_PER_SEC)
@@ -207,6 +208,26 @@ int dns_scope_emit(DnsScope *s, int fd, DnsPacket *p) {
                 r = manager_send(s->manager, fd, ifindex, family, &addr, port, p);
                 if (r < 0)
                         return r;
+
+                break;
+
+        case DNS_PROTOCOL_MDNS:
+                if (!ratelimit_test(&s->ratelimit))
+                        return -EBUSY;
+
+                family = s->family;
+                port = MDNS_PORT;
+
+                if (family == AF_INET) {
+                        addr.in = MDNS_MULTICAST_IPV4_ADDRESS;
+                        fd = manager_mdns_ipv4_fd(s->manager);
+                } else if (family == AF_INET6) {
+                        addr.in6 = MDNS_MULTICAST_IPV6_ADDRESS;
+                        fd = manager_mdns_ipv6_fd(s->manager);
+                } else
+                        return -EAFNOSUPPORT;
+                if (fd < 0)
+                        return fd;
 
                 break;
 
