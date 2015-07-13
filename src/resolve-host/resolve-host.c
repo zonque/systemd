@@ -56,10 +56,12 @@ static void print_source(uint64_t flags, usec_t rtt) {
         fputs("\n-- Information acquired via", stdout);
 
         if (flags != 0)
-                printf(" protocol%s%s%s",
+                printf(" protocol%s%s%s%s%s",
                        flags & SD_RESOLVED_DNS ? " DNS" :"",
                        flags & SD_RESOLVED_LLMNR_IPV4 ? " LLMNR/IPv4" : "",
-                       flags & SD_RESOLVED_LLMNR_IPV6 ? " LLMNR/IPv6" : "");
+                       flags & SD_RESOLVED_LLMNR_IPV6 ? " LLMNR/IPv6" : "",
+                       flags & SD_RESOLVED_MDNS_IPV4 ?  " mDNS/IPv4"  : "",
+                       flags & SD_RESOLVED_MDNS_IPV6 ?  " mDNS/IPv6"  : "");
 
         assert_se(format_timespan(rtt_str, sizeof(rtt_str), rtt, 100));
 
@@ -793,6 +795,12 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_flags |= SD_RESOLVED_LLMNR_IPV4;
                         else if (streq(optarg, "llmnr-ipv6"))
                                 arg_flags |= SD_RESOLVED_LLMNR_IPV6;
+                        else if (streq(optarg, "mdns"))
+                                arg_flags |= SD_RESOLVED_MDNS;
+                        else if (streq(optarg, "mdns-ipv4"))
+                                arg_flags |= SD_RESOLVED_MDNS_IPV4;
+                        else if (streq(optarg, "mdns-ipv6"))
+                                arg_flags |= SD_RESOLVED_MDNS_IPV6;
                         else {
                                 log_error("Unknown protocol specifier: %s", optarg);
                                 return -EINVAL;
