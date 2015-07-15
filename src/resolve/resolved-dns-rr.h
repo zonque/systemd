@@ -39,10 +39,15 @@ enum {
         _DNS_CLASS_INVALID = -1
 };
 
+enum {
+        DNS_RESOURCE_KEY_CACHE_FLUSH = 1,
+};
+
 struct DnsResourceKey {
         unsigned n_ref;
         uint16_t class, type;
         char *_name; /* don't access directy, use DNS_RESOURCE_KEY_NAME()! */
+        uint64_t flags;
 };
 
 struct DnsResourceRecord {
@@ -179,7 +184,7 @@ static inline const char* DNS_RESOURCE_KEY_NAME(const DnsResourceKey *key) {
 DnsResourceKey* dns_resource_key_new(uint16_t class, uint16_t type, const char *name);
 DnsResourceKey* dns_resource_key_new_cname(const DnsResourceKey *key);
 DnsResourceKey* dns_resource_key_new_redirect(const DnsResourceKey *key, const DnsResourceRecord *cname);
-DnsResourceKey* dns_resource_key_new_consume(uint16_t class, uint16_t type, char *name);
+DnsResourceKey* dns_resource_key_new_consume(uint16_t class, uint16_t type, char *name, uint64_t flags);
 DnsResourceKey* dns_resource_key_ref(DnsResourceKey *key);
 DnsResourceKey* dns_resource_key_unref(DnsResourceKey *key);
 int dns_resource_key_equal(const DnsResourceKey *a, const DnsResourceKey *b);

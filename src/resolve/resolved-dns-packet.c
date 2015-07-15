@@ -1309,6 +1309,7 @@ int dns_packet_read_key(DnsPacket *p, DnsResourceKey **ret, size_t *start) {
         uint16_t class, type;
         DnsResourceKey *key;
         size_t saved_rindex;
+        uint64_t flags = 0;
         int r;
 
         assert(p);
@@ -1328,7 +1329,16 @@ int dns_packet_read_key(DnsPacket *p, DnsResourceKey **ret, size_t *start) {
         if (r < 0)
                 goto fail;
 
-        key = dns_resource_key_new_consume(class, type, name);
+        if (p->protocol == DNS_PROTOCOL_MDNS) {
+                /* See RFC6762, Section 10.2 */
+
+                if (class & 0x8000) {
+                        class &= 0x7fff;
+                        flags |= DNS_RESOURCE_KEY_CACHE_FLUSH;
+                }
+        }
+
+        key = dns_resource_key_new_consume(class, type, name, flags);
         if (!key) {
                 r = -ENOMEM;
                 goto fail;

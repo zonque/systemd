@@ -61,7 +61,7 @@ DnsResourceKey* dns_resource_key_new_redirect(const DnsResourceKey *key, const D
         return dns_resource_key_new(key->class, key->type, cname->cname.name);
 }
 
-DnsResourceKey* dns_resource_key_new_consume(uint16_t class, uint16_t type, char *name) {
+DnsResourceKey* dns_resource_key_new_consume(uint16_t class, uint16_t type, char *name, uint64_t flags) {
         DnsResourceKey *k;
 
         assert(name);
@@ -74,6 +74,7 @@ DnsResourceKey* dns_resource_key_new_consume(uint16_t class, uint16_t type, char
         k->class = class;
         k->type = type;
         k->_name = name;
+        k->flags = flags;
 
         return k;
 }
@@ -343,7 +344,7 @@ int dns_resource_record_new_reverse(DnsResourceRecord **ret, int family, const u
         if (r < 0)
                 return r;
 
-        key = dns_resource_key_new_consume(DNS_CLASS_IN, DNS_TYPE_PTR, ptr);
+        key = dns_resource_key_new_consume(DNS_CLASS_IN, DNS_TYPE_PTR, ptr, 0);
         if (!key)
                 return -ENOMEM;
 

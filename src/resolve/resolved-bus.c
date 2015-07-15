@@ -458,7 +458,7 @@ static int bus_method_resolve_address(sd_bus_message *message, void *userdata, s
         if (!question)
                 return -ENOMEM;
 
-        key = dns_resource_key_new_consume(DNS_CLASS_IN, DNS_TYPE_PTR, reverse);
+        key = dns_resource_key_new_consume(DNS_CLASS_IN, DNS_TYPE_PTR, reverse, 0);
         if (!key)
                 return -ENOMEM;
 
