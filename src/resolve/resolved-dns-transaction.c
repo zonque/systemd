@@ -537,14 +537,19 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
         assert(s);
         assert(t);
 
-        /* Timeout reached? Try again, with a new server */
-        dns_transaction_next_dns_server(t);
+        if (!t->initial_jitter_scheduled || t->initial_jitter_elapsed) {
+                /* Timeout reached? Try again, with a new server */
+                dns_transaction_next_dns_server(t);
 
-        /* ... and possibly increased timeout */
-        if (t->server)
-                dns_server_packet_lost(t->server, usec - t->start_usec);
-        else
-                dns_scope_packet_lost(t->scope, usec - t->start_usec);
+                /* ... and possibly increased timeout */
+                if (t->server)
+                        dns_server_packet_lost(t->server, usec - t->start_usec);
+                else
+                        dns_scope_packet_lost(t->scope, usec - t->start_usec);
+        }
+
+        if (t->initial_jitter_scheduled)
+                t->initial_jitter_elapsed = true;
 
         r = dns_transaction_go(t);
         if (r < 0)
@@ -676,7 +681,7 @@ int dns_transaction_go(DnsTransaction *t) {
                 }
         }
 
-        if (!t->initial_jitter &&
+        if (!t->initial_jitter_scheduled &&
             (t->scope->protocol == DNS_PROTOCOL_LLMNR ||
              t->scope->protocol == DNS_PROTOCOL_MDNS)) {
                 usec_t jitter, accuracy;
@@ -684,7 +689,7 @@ int dns_transaction_go(DnsTransaction *t) {
                 /* RFC 4795 Section 2.7 suggests all queries should be
                  * delayed by a random time from 0 to JITTER_INTERVAL. */
 
-                t->initial_jitter = true;
+                t->initial_jitter_scheduled = true;
 
                 random_bytes(&jitter, sizeof(jitter));
 

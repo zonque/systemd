@@ -52,7 +52,8 @@ struct DnsTransaction {
         DnsTransactionState state;
         uint16_t id;
 
-        bool initial_jitter;
+        bool initial_jitter_scheduled;
+        bool initial_jitter_elapsed;
 
         DnsPacket *sent, *received;
         DnsAnswer *cached;
