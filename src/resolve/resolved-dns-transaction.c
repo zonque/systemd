@@ -599,8 +599,9 @@ static usec_t transaction_get_resend_timeout(DnsTransaction *t) {
                 assert(t->server);
 
                 return t->server->resend_timeout;
-        case DNS_PROTOCOL_LLMNR:
         case DNS_PROTOCOL_MDNS:
+                return (1 << (t->n_attempts - 1)) * USEC_PER_SEC;
+        case DNS_PROTOCOL_LLMNR:
                 return t->scope->resend_timeout;
         default:
                 assert_not_reached("Invalid DNS protocol.");
