@@ -1711,7 +1711,7 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, size_t *start) {
                 break;
 
         case DNS_TYPE_NSEC:
-                r = dns_packet_read_name(p, &rr->nsec.next_domain_name, false, NULL);
+                r = dns_packet_read_name(p, &rr->nsec.next_domain_name, true, NULL);
                 if (r < 0)
                         goto fail;
 
