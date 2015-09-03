@@ -457,9 +457,18 @@ int dns_cache_put(
                 if (rr->key->cache_flush)
                         dns_cache_remove(c, rr->key);
 
-                r = dns_cache_put_positive(c, rr, timestamp, owner_family, owner_address);
-                if (r < 0)
-                        goto fail;
+                switch (rr->key->type) {
+                case DNS_TYPE_NSEC:
+                        r = dns_cache_put_negative(c, rr->key, rcode, timestamp, 0, owner_family, owner_address);
+                        if (r < 0)
+                                goto fail;
+                        break;
+                default:
+                        r = dns_cache_put_positive(c, rr, timestamp, owner_family, owner_address);
+                        if (r < 0)
+                                goto fail;
+                        break;
+                }
         }
 
         if (!key)
