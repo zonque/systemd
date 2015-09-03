@@ -128,7 +128,7 @@ int dns_resource_key_match_rr(const DnsResourceKey *key, const DnsResourceRecord
         if (rr->key->class != key->class && key->class != DNS_CLASS_ANY)
                 return 0;
 
-        if (rr->key->type != key->type && key->type != DNS_TYPE_ANY)
+        if (rr->key->type != key->type && !IN_SET(key->type, DNS_TYPE_ANY, DNS_TYPE_NSEC))
                 return 0;
 
         return dns_name_equal(DNS_RESOURCE_KEY_NAME(rr->key), DNS_RESOURCE_KEY_NAME(key));
