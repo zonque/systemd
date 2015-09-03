@@ -436,9 +436,10 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                         return;
                 }
                 if (r < 0) {
-                        /* On LLMNR, if we cannot connect to the host,
+                        /* On LLMNR and mDNS, if we cannot connect to the host,
                          * we immediately give up */
-                        if (t->scope->protocol == DNS_PROTOCOL_LLMNR) {
+                        if (t->scope->protocol == DNS_PROTOCOL_LLMNR ||
+                            t->scope->protocol == DNS_PROTOCOL_MDNS) {
                                 dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
                                 return;
                         }
@@ -463,14 +464,21 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 return;
         }
 
-        /* Only consider responses with equivalent query section to the request */
-        if (p->question->n_keys != 1 || dns_resource_key_equal(p->question->keys[0], t->key) <= 0) {
-                dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
-                return;
-        }
+        /* For mDNS, we put responses in the cache, regardless whether they belonged to any
+         * active transaction. Hence, we don't care here. Also, mDNS query responeses do not
+         * contain the question. */
 
-        /* According to RFC 4795, section 2.9. only the RRs from the answer section shall be cached */
-        dns_cache_put(&t->scope->cache, t->key, DNS_PACKET_RCODE(p), p->answer, DNS_PACKET_ANCOUNT(p), 0, p->family, &p->sender);
+        if (t->scope->protocol != DNS_PROTOCOL_MDNS) {
+                /* Only consider responses with equivalent query section to the request */
+                if (p->question->n_keys != 1 || dns_resource_key_equal(p->question->keys[0], t->key) <= 0) {
+                        dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
+                        return;
+                }
+
+                /* According to RFC 4795, section 2.9. only the RRs from the answer section shall be cached */
+                dns_cache_put(&t->scope->cache, t->key, DNS_PACKET_RCODE(p), p->answer,
+                              DNS_PACKET_ANCOUNT(p), 0, p->family, &p->sender);
+        }
 
         if (DNS_PACKET_RCODE(p) == DNS_RCODE_SUCCESS)
                 dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
