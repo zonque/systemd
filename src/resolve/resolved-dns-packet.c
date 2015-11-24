@@ -1387,6 +1387,15 @@ int dns_packet_read_key(DnsPacket *p, DnsResourceKey **ret, size_t *start) {
                 goto fail;
         }
 
+        if (p->protocol == DNS_PROTOCOL_MDNS) {
+                /* See RFC6762, Section 10.2 */
+
+                if (class & 0x8000) {
+                        class &= 0x7fff;
+                        key->cache_flush = true;
+                }
+        }
+
         name = NULL;
         *ret = key;
 
