@@ -671,6 +671,61 @@ fail:
         return r;
 }
 
+static int create_notify_socket(const char *name, int type, bool is_system, char **socket_path_ret) {
+        _cleanup_free_ char *socket_path = NULL;
+        _cleanup_close_ int fd = -1;
+        static const int one = 1;
+        union sockaddr_union sa = {
+                .sa.sa_family = AF_UNIX,
+        };
+        int r;
+
+        assert(name);
+        assert(socket_path_ret);
+
+        fd = socket(AF_UNIX, type, 0);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to allocate notification socket: %m");
+
+        fd_inc_rcvbuf(fd, NOTIFY_RCVBUF_SIZE);
+
+        if (is_system)
+                asprintf(&socket_path, "/run/systemd/%s", name);
+        else {
+                const char *e;
+
+                e = getenv("XDG_RUNTIME_DIR");
+                if (!e) {
+                        log_error_errno(errno, "XDG_RUNTIME_DIR is not set: %m");
+                        return -EINVAL;
+                }
+
+                asprintf(&socket_path, "%s/systemd/%s", e, name);
+        }
+        if (!socket_path)
+                return log_oom();
+
+        (void) mkdir_parents_label(socket_path, 0755);
+        (void) unlink(socket_path);
+
+        strncpy(sa.un.sun_path, socket_path, sizeof(sa.un.sun_path)-1);
+        r = bind(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path));
+        if (r < 0)
+                return log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
+
+        r = setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
+        if (r < 0)
+                return log_error_errno(errno, "SO_PASSCRED failed: %m");
+
+        *socket_path_ret = socket_path;
+        socket_path = NULL;
+
+        r = fd;
+        fd = -1;
+
+        return r;
+}
+
 static int manager_setup_notify(Manager *m) {
         int r;
 
@@ -678,52 +733,15 @@ static int manager_setup_notify(Manager *m) {
                 return 0;
 
         if (m->notify_fd < 0) {
-                _cleanup_close_ int fd = -1;
-                union sockaddr_union sa = {
-                        .sa.sa_family = AF_UNIX,
-                };
-                static const int one = 1;
+                bool is_system = m->running_as == MANAGER_SYSTEM;
 
                 /* First free all secondary fields */
                 m->notify_socket = mfree(m->notify_socket);
                 m->notify_event_source = sd_event_source_unref(m->notify_event_source);
 
-                fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-                if (fd < 0)
-                        return log_error_errno(errno, "Failed to allocate notification socket: %m");
-
-                fd_inc_rcvbuf(fd, NOTIFY_RCVBUF_SIZE);
-
-                if (m->running_as == MANAGER_SYSTEM)
-                        m->notify_socket = strdup("/run/systemd/notify");
-                else {
-                        const char *e;
-
-                        e = getenv("XDG_RUNTIME_DIR");
-                        if (!e) {
-                                log_error_errno(errno, "XDG_RUNTIME_DIR is not set: %m");
-                                return -EINVAL;
-                        }
-
-                        m->notify_socket = strappend(e, "/systemd/notify");
-                }
-                if (!m->notify_socket)
-                        return log_oom();
-
-                (void) mkdir_parents_label(m->notify_socket, 0755);
-                (void) unlink(m->notify_socket);
-
-                strncpy(sa.un.sun_path, m->notify_socket, sizeof(sa.un.sun_path)-1);
-                r = bind(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path));
-                if (r < 0)
-                        return log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
-
-                r = setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
-                if (r < 0)
-                        return log_error_errno(errno, "SO_PASSCRED failed: %m");
-
-                m->notify_fd = fd;
-                fd = -1;
+                m->notify_fd = create_notify_socket("notify", SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, is_system, &m->notify_socket);
+                if (m->notify_fd < 0)
+                        return m->notify_fd;
 
                 log_debug("Using notification socket %s", m->notify_socket);
         }
