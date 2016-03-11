@@ -484,7 +484,7 @@ static int manager_setup_signals(Manager *m) {
         (void) sd_event_source_set_description(m->signal_event_source, "manager-signal");
 
         /* Process signals a bit earlier than the rest of things, but
-         * later than notify_fd processing, so that the notify
+         * later than notify fd processing, so that the notify
          * processing can still figure out to which process/service a
          * message belongs, before we reap the process. */
         r = sd_event_source_set_priority(m->signal_event_source, SD_EVENT_PRIORITY_NORMAL-5);
@@ -587,7 +587,7 @@ int manager_new(ManagerRunningAs running_as, bool test_run, Manager **_m) {
 
         m->idle_pipe[0] = m->idle_pipe[1] = m->idle_pipe[2] = m->idle_pipe[3] = -1;
 
-        m->pin_cgroupfs_fd = m->notify_fd = m->signal_fd = m->time_change_fd =
+        m->pin_cgroupfs_fd = m->notify_fd_async = m->signal_fd = m->time_change_fd =
                 m->dev_autofs_fd = m->private_listen_fd = m->kdbus_fd = m->cgroup_inotify_fd = -1;
 
         m->current_job_id = 1; /* start as id #1, so that we can leave #0 around as "null-like" value */
@@ -732,32 +732,32 @@ static int manager_setup_notify(Manager *m) {
         if (m->test_run)
                 return 0;
 
-        if (m->notify_fd < 0) {
+        if (m->notify_fd_async < 0) {
                 bool is_system = m->running_as == MANAGER_SYSTEM;
 
                 /* First free all secondary fields */
-                m->notify_socket = mfree(m->notify_socket);
-                m->notify_event_source = sd_event_source_unref(m->notify_event_source);
+                m->notify_socket_async = mfree(m->notify_socket_async);
+                m->notify_event_source_async = sd_event_source_unref(m->notify_event_source_async);
 
-                m->notify_fd = create_notify_socket("notify", SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, is_system, &m->notify_socket);
-                if (m->notify_fd < 0)
-                        return m->notify_fd;
+                m->notify_fd_async = create_notify_socket("notify", SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, is_system, &m->notify_socket_async);
+                if (m->notify_fd_async < 0)
+                        return m->notify_fd_async;
 
-                log_debug("Using notification socket %s", m->notify_socket);
+                log_debug("Using notification socket %s for asynchronous communication.", m->notify_socket_async);
         }
 
-        if (!m->notify_event_source) {
-                r = sd_event_add_io(m->event, &m->notify_event_source, m->notify_fd, EPOLLIN, manager_dispatch_notify_fd, m);
+        if (!m->notify_event_source_async) {
+                r = sd_event_add_io(m->event, &m->notify_event_source_async, m->notify_fd_async, EPOLLIN, manager_dispatch_notify_fd, m);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to allocate notify event source: %m");
+                        return log_error_errno(r, "Failed to allocate datagram notify event source: %m");
 
                 /* Process signals a bit earlier than SIGCHLD, so that we can
                  * still identify to which service an exit message belongs */
-                r = sd_event_source_set_priority(m->notify_event_source, SD_EVENT_PRIORITY_NORMAL-7);
+                r = sd_event_source_set_priority(m->notify_event_source_async, SD_EVENT_PRIORITY_NORMAL-7);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to set priority of notify event source: %m");
+                        return log_error_errno(r, "Failed to set priority of datagram notify event source: %m");
 
-                (void) sd_event_source_set_description(m->notify_event_source, "manager-notify");
+                (void) sd_event_source_set_description(m->notify_event_source_async, "manager-notify-async");
         }
 
         return 0;
@@ -972,13 +972,13 @@ Manager* manager_free(Manager *m) {
         set_free(m->failed_units);
 
         sd_event_source_unref(m->signal_event_source);
-        sd_event_source_unref(m->notify_event_source);
+        sd_event_source_unref(m->notify_event_source_async);
         sd_event_source_unref(m->time_change_event_source);
         sd_event_source_unref(m->jobs_in_progress_event_source);
         sd_event_source_unref(m->run_queue_event_source);
 
         safe_close(m->signal_fd);
-        safe_close(m->notify_fd);
+        safe_close(m->notify_fd_async);
         safe_close(m->time_change_fd);
         safe_close(m->kdbus_fd);
 
@@ -989,7 +989,7 @@ Manager* manager_free(Manager *m) {
         udev_unref(m->udev);
         sd_event_unref(m->event);
 
-        free(m->notify_socket);
+        free(m->notify_socket_async);
 
         lookup_paths_free(&m->lookup_paths);
         strv_free(m->environment);
@@ -1561,14 +1561,14 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
         ssize_t n;
 
         assert(m);
-        assert(m->notify_fd == fd);
+        assert(m->notify_fd_async == fd);
 
         if (revents != EPOLLIN) {
                 log_warning("Got unexpected poll event for notify fd.");
                 return 0;
         }
 
-        n = recvmsg(m->notify_fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
+        n = recvmsg(m->notify_fd_async, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
         if (n < 0) {
                 if (errno == EAGAIN || errno == EINTR)
                         return 0;
@@ -2284,15 +2284,15 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
                 }
         }
 
-        if (m->notify_fd >= 0) {
+        if (m->notify_fd_async >= 0) {
                 int copy;
 
-                copy = fdset_put_dup(fds, m->notify_fd);
+                copy = fdset_put_dup(fds, m->notify_fd_async);
                 if (copy < 0)
                         return copy;
 
                 fprintf(f, "notify-fd=%i\n", copy);
-                fprintf(f, "notify-socket=%s\n", m->notify_socket);
+                fprintf(f, "notify-socket=%s\n", m->notify_socket_async);
         }
 
         if (m->kdbus_fd >= 0) {
@@ -2445,9 +2445,9 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         if (safe_atoi(l + 10, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
                                 log_debug("Failed to parse notify fd: %s", l + 10);
                         else {
-                                m->notify_event_source = sd_event_source_unref(m->notify_event_source);
-                                safe_close(m->notify_fd);
-                                m->notify_fd = fdset_remove(fds, fd);
+                                m->notify_event_source_async = sd_event_source_unref(m->notify_event_source_async);
+                                safe_close(m->notify_fd_async);
+                                m->notify_fd_async = fdset_remove(fds, fd);
                         }
 
                 } else if (startswith(l, "notify-socket=")) {
@@ -2459,8 +2459,8 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                                 goto finish;
                         }
 
-                        free(m->notify_socket);
-                        m->notify_socket = n;
+                        free(m->notify_socket_async);
+                        m->notify_socket_async = n;
 
                 } else if (startswith(l, "kdbus-fd=")) {
                         int fd;
@@ -2581,7 +2581,7 @@ int manager_reload(Manager *m) {
         fclose(f);
         f = NULL;
 
-        /* Re-register notify_fd as event source */
+        /* Re-register notify_fd_async as event source */
         q = manager_setup_notify(m);
         if (q < 0 && r >= 0)
                 r = q;

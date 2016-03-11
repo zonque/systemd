@@ -128,9 +128,13 @@ struct Manager {
 
         sd_event_source *run_queue_event_source;
 
-        char *notify_socket;
-        int notify_fd;
-        sd_event_source *notify_event_source;
+        char *notify_socket_async;
+        int notify_fd_async;
+        sd_event_source *notify_event_source_async;
+
+        char *notify_socket_stream;
+        int notify_fd_stream;
+        sd_event_source *notify_event_source_stream;
 
         int signal_fd;
         sd_event_source *signal_event_source;

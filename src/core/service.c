@@ -1210,7 +1210,7 @@ static int service_spawn(
                 return -ENOMEM;
 
         if (is_control ? s->notify_access == NOTIFY_ALL : s->notify_access != NOTIFY_NONE)
-                if (asprintf(our_env + n_env++, "NOTIFY_SOCKET=%s", UNIT(s)->manager->notify_socket) < 0)
+                if (asprintf(our_env + n_env++, "NOTIFY_SOCKET=%s", UNIT(s)->manager->notify_socket_async) < 0)
                         return -ENOMEM;
 
         if (s->main_pid > 0)
