@@ -72,6 +72,7 @@
 #include "signal-util.h"
 #include "special.h"
 #include "stat-util.h"
+#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -92,6 +93,7 @@
 #define JOBS_IN_PROGRESS_PERIOD_DIVISOR 3
 
 static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
+static int manager_dispatch_notify_accept_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 static int manager_dispatch_time_change_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 static int manager_dispatch_idle_pipe_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
@@ -587,7 +589,7 @@ int manager_new(ManagerRunningAs running_as, bool test_run, Manager **_m) {
 
         m->idle_pipe[0] = m->idle_pipe[1] = m->idle_pipe[2] = m->idle_pipe[3] = -1;
 
-        m->pin_cgroupfs_fd = m->notify_fd_async = m->signal_fd = m->time_change_fd =
+        m->pin_cgroupfs_fd = m->notify_fd_async = m->notify_fd_sync = m->signal_fd = m->time_change_fd =
                 m->dev_autofs_fd = m->private_listen_fd = m->kdbus_fd = m->cgroup_inotify_fd = -1;
 
         m->current_job_id = 1; /* start as id #1, so that we can leave #0 around as "null-like" value */
@@ -727,14 +729,13 @@ static int create_notify_socket(const char *name, int type, bool is_system, char
 }
 
 static int manager_setup_notify(Manager *m) {
+        bool is_system = m->running_as == MANAGER_SYSTEM;
         int r;
 
         if (m->test_run)
                 return 0;
 
         if (m->notify_fd_async < 0) {
-                bool is_system = m->running_as == MANAGER_SYSTEM;
-
                 /* First free all secondary fields */
                 m->notify_socket_async = mfree(m->notify_socket_async);
                 m->notify_event_source_async = sd_event_source_unref(m->notify_event_source_async);
@@ -758,6 +759,36 @@ static int manager_setup_notify(Manager *m) {
                         return log_error_errno(r, "Failed to set priority of datagram notify event source: %m");
 
                 (void) sd_event_source_set_description(m->notify_event_source_async, "manager-notify-async");
+        }
+
+        if (m->notify_fd_sync < 0) {
+                /* First free all secondary fields */
+                m->notify_socket_sync = mfree(m->notify_socket_sync);
+                m->notify_event_source_sync = sd_event_source_unref(m->notify_event_source_sync);
+
+                m->notify_fd_sync = create_notify_socket("notify-sync", SOCK_SEQPACKET|SOCK_CLOEXEC, is_system, &m->notify_socket_sync);
+                if (m->notify_fd_sync < 0)
+                        return m->notify_fd_sync;
+
+                r = listen(m->notify_fd_sync, SOMAXCONN);
+                if (r < 0)
+                        return log_error_errno(errno, "Failed to listen on sync notify event source: %m");
+
+                log_debug("Using notification socket %s for synchronous communication.", m->notify_socket_sync);
+        }
+
+        if (!m->notify_event_source_sync) {
+                r = sd_event_add_io(m->event, &m->notify_event_source_sync, m->notify_fd_sync, EPOLLIN, manager_dispatch_notify_accept_fd, m);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate synchronous notify event source: %m");
+
+                /* Process signals a bit earlier than SIGCHLD, so that we can
+                 * still identify to which service an exit message belongs */
+                r = sd_event_source_set_priority(m->notify_event_source_sync, SD_EVENT_PRIORITY_NORMAL-7);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set priority of synchronous notify event source: %m");
+
+                (void) sd_event_source_set_description(m->notify_event_source_sync, "manager-notify-sync");
         }
 
         return 0;
@@ -1531,6 +1562,42 @@ static void manager_invoke_notify_message(Manager *m, Unit *u, pid_t pid, const 
                 log_unit_debug(u, "Got notification message for unit. Ignoring.");
 }
 
+static int manager_dispatch_notify_accept_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
+        sd_event_source *client_source;
+        Manager *m = userdata;
+        int cfd, r;
+
+        assert(m);
+        assert(m->notify_fd_sync == fd);
+
+        for (;;) {
+                cfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK);
+                if (cfd < 0) {
+                        if (errno == EINTR)
+                                continue;
+
+                        log_warning_errno(errno, "Failed to accept notify socket: %m");
+                        return 0;
+                }
+
+                break;
+        }
+
+        r = sd_event_add_io(m->event, &client_source, cfd, EPOLLIN|EPOLLHUP, manager_dispatch_notify_fd, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate notify client event source: %m");
+
+        r = sd_event_source_set_priority(client_source, SD_EVENT_PRIORITY_NORMAL-7);
+        if (r < 0) {
+                sd_event_source_unref(client_source);
+                return log_error_errno(r, "Failed to set priority of notify client event source: %m");
+        }
+
+        (void) sd_event_source_set_description(client_source, "manager-notify-client");
+
+        return 0;
+}
+
 static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         _cleanup_fdset_free_ FDSet *fds = NULL;
         Manager *m = userdata;
@@ -1555,20 +1622,30 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
         struct cmsghdr *cmsg;
         struct ucred *ucred = NULL;
         bool found = false;
+        bool send_reply = false;
         Unit *u1, *u2, *u3;
-        int r, *fd_array = NULL;
+        int r = 0, *fd_array = NULL;
         unsigned n_fds = 0;
         ssize_t n;
 
         assert(m);
-        assert(m->notify_fd_async == fd);
+
+        if (revents & EPOLLHUP) {
+                assert(m->notify_fd_async != fd);
+                close(fd);
+                sd_event_source_unref(source);
+                return 0;
+        }
 
         if (revents != EPOLLIN) {
                 log_warning("Got unexpected poll event for notify fd.");
                 return 0;
         }
 
-        n = recvmsg(m->notify_fd_async, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
+        n = recvmsg(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
+        if (m->notify_fd_async != fd)
+                send_reply = true;
+
         if (n < 0) {
                 if (errno == EAGAIN || errno == EINTR)
                         return 0;
@@ -1596,18 +1673,21 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                 r = fdset_new_array(&fds, fd_array, n_fds);
                 if (r < 0) {
                         close_many(fd_array, n_fds);
-                        return log_oom();
+                        r = log_oom();
+                        goto out;
                 }
         }
 
         if (!ucred || ucred->pid <= 0) {
                 log_warning("Received notify message without valid credentials. Ignoring.");
-                return 0;
+                r = 0;
+                goto out;
         }
 
         if ((size_t) n >= sizeof(buf)) {
                 log_warning("Received notify message exceeded maximum size. Ignoring.");
-                return 0;
+                r = 0;
+                goto out;
         }
 
         buf[n] = 0;
@@ -1638,7 +1718,23 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
         if (fdset_size(fds) > 0)
                 log_warning("Got auxiliary fds with notification message, closing all.");
 
-        return 0;
+out:
+        if (send_reply) {
+                buf[0] = found;
+                iovec.iov_len = 1;
+
+                msghdr.msg_control = NULL;
+                msghdr.msg_controllen = 0;
+
+                n = sendmsg(fd, &msghdr, 0);
+                if (n < 0)
+                        log_warning_errno(errno, "Unable to send reply buffer to client: %m. Ignoring.");
+
+                /* The fd is the client fd from accept() in this case. Close it. */
+                shutdown(fd, SHUT_RDWR);
+        }
+
+        return r;
 }
 
 static void invoke_sigchld_event(Manager *m, Unit *u, const siginfo_t *si) {

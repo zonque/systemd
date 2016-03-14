@@ -132,9 +132,9 @@ struct Manager {
         int notify_fd_async;
         sd_event_source *notify_event_source_async;
 
-        char *notify_socket_stream;
-        int notify_fd_stream;
-        sd_event_source *notify_event_source_stream;
+        char *notify_socket_sync;
+        int notify_fd_sync;
+        sd_event_source *notify_event_source_sync;
 
         int signal_fd;
         sd_event_source *signal_event_source;
