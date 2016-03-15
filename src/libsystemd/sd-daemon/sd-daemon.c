@@ -39,6 +39,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "socket-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "util.h"
 
@@ -417,16 +418,17 @@ _public_ int sd_pid_notify_with_fds(pid_t pid, int unset_environment, const char
         struct cmsghdr *cmsg = NULL;
         const char *e;
         bool have_pid;
+        char reply;
         int r;
 
         if (!state) {
                 r = -EINVAL;
-                goto finish;
+                goto error;
         }
 
         if (n_fds > 0 && !fds) {
                 r = -EINVAL;
-                goto finish;
+                goto error;
         }
 
         e = getenv("NOTIFY_SOCKET");
@@ -436,18 +438,18 @@ _public_ int sd_pid_notify_with_fds(pid_t pid, int unset_environment, const char
         /* Must be an abstract socket, or an absolute path */
         if ((e[0] != '@' && e[0] != '/') || e[1] == 0) {
                 r = -EINVAL;
-                goto finish;
+                goto error;
         }
 
         if (strlen(e) > sizeof(sockaddr.un.sun_path)) {
                 r = -EINVAL;
-                goto finish;
+                goto error;
         }
 
-        fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0);
+        fd = socket(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0);
         if (fd < 0) {
                 r = -errno;
-                goto finish;
+                goto error;
         }
 
         fd_inc_sndbuf(fd, SNDBUF_SIZE);
@@ -458,9 +460,11 @@ _public_ int sd_pid_notify_with_fds(pid_t pid, int unset_environment, const char
         if (sockaddr.un.sun_path[0] == '@')
                 sockaddr.un.sun_path[0] = 0;
 
-        msghdr.msg_namelen = offsetof(struct sockaddr_un, sun_path) + strlen(e);
-        if (msghdr.msg_namelen > sizeof(struct sockaddr_un))
-                msghdr.msg_namelen = sizeof(struct sockaddr_un);
+        r = connect(fd, &sockaddr.un, sizeof(sockaddr.un));
+        if (r < 0) {
+                r = -errno;
+                goto error;
+        }
 
         have_pid = pid != 0 && pid != getpid();
 
@@ -501,24 +505,36 @@ _public_ int sd_pid_notify_with_fds(pid_t pid, int unset_environment, const char
         /* First try with fake ucred data, as requested */
         if (sendmsg(fd, &msghdr, MSG_NOSIGNAL) >= 0) {
                 r = 1;
-                goto finish;
+                goto read_reply;
         }
 
         /* If that failed, try with our own ucred instead */
-        if (have_pid) {
+        if (errno == EPERM && have_pid) {
                 msghdr.msg_controllen -= CMSG_SPACE(sizeof(struct ucred));
                 if (msghdr.msg_controllen == 0)
                         msghdr.msg_control = NULL;
 
                 if (sendmsg(fd, &msghdr, MSG_NOSIGNAL) >= 0) {
                         r = 1;
-                        goto finish;
+                        goto read_reply;
                 }
         }
 
         r = -errno;
 
-finish:
+read_reply:
+        iovec.iov_base = &reply;
+        iovec.iov_len = 1,
+
+        r = recvmsg(fd, &msghdr, MSG_CMSG_CLOEXEC);
+        if (r < 1) {
+                r = -errno;
+                goto error;
+        }
+
+        r = reply;
+
+error:
         if (unset_environment)
                 unsetenv("NOTIFY_SOCKET");
 
