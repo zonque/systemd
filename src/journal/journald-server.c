@@ -1688,7 +1688,7 @@ static int server_connect_notify(Server *s) {
                 return -EINVAL;
         }
 
-        s->notify_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        s->notify_fd = socket(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (s->notify_fd < 0)
                 return log_error_errno(errno, "Failed to create notify socket: %m");
 
