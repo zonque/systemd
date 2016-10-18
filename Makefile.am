@@ -938,7 +938,9 @@ libbasic_la_SOURCES = \
 	src/basic/alloc-util.h \
 	src/basic/alloc-util.c \
 	src/basic/format-util.h \
-	src/basic/nss-util.h
+	src/basic/nss-util.h \
+	src/basic/bpf-program.c \
+	src/basic/bpf-program.h
 
 nodist_libbasic_la_SOURCES = \
 	src/basic/errno-from-name.h \
