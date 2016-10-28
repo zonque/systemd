@@ -357,6 +357,26 @@ AC_CHECK_DECLS([IFLA_INET6_ADDR_GEN_MODE,
 #include <linux/neighbour.h>
 ]])
 
+AC_CHECK_DECLS([BPF_PROG_TYPE_CGROUP_SKB,
+                BPF_CGROUP_INET_INGRESS,
+                BPF_CGROUP_INET_EGRESS,
+                BPF_PROG_ATTACH,
+                BPF_PROG_DETACH,
+                BPF_MAP_TYPE_LPM_TRIE],
+[], [], [[
+#include <linux/bpf.h>
+]])
+
+AC_CHECK_TYPES([struct bpf_lpm_trie_key],
+[], [], [[
+#include <linux/bpf.h>
+]])
+
+AC_CHECK_MEMBERS([union bpf_attr.attach_type],
+[], [], [[
+#include <linux/bpf.h>
+]])
+
 # This makes sure pkg.m4 is available.
 m4_pattern_forbid([^_?PKG_[A-Z_]+$],[*** pkg.m4 missing, please install pkg-config])
 

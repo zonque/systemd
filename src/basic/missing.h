@@ -893,6 +893,37 @@ struct btrfs_ioctl_quota_ctl_args {
 #define NDA_MAX (__NDA_MAX - 1)
 #endif
 
+#if !HAVE_DECL_BPF_PROG_TYPE_CGROUP_SKB
+#define BPF_PROG_TYPE_CGROUP_SKB 8
+#endif
+
+#if !HAVE_DECL_BPF_CGROUP_INET_INGRESS
+#define BPF_CGROUP_INET_INGRESS 0
+#endif
+
+#if !HAVE_DECL_BPF_CGROUP_INET_EGRESS
+#define BPF_CGROUP_INET_EGRESS 1
+#endif
+
+#if !HAVE_DECL_BPF_PROG_ATTACH
+#define BPF_PROG_ATTACH 8
+#endif
+
+#if !HAVE_DECL_BPF_PROG_DETACH
+#define BPF_PROG_DETACH 9
+#endif
+
+#if !HAVE_DECL_BPF_MAP_TYPE_LPM_TRIE
+#define BPF_MAP_TYPE_LPM_TRIE 9
+#endif
+
+#ifndef HAVE_STRUCT_BPF_LPM_TRIE_KEY
+struct bpf_lpm_trie_key {
+        __u32	prefixlen;	/* up to 32 for AF_INET, 128 for AF_INET6 */
+        __u8	data[0];	/* Arbitrary size */
+};
+#endif
+
 #ifndef RTA_PREF
 #define RTA_PREF 20
 #endif
