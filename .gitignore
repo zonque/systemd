@@ -138,6 +138,7 @@
 /test-barrier
 /test-bitmap
 /test-boot-timestamps
+/test-bpf
 /test-btrfs
 /test-bus-benchmark
 /test-bus-chat

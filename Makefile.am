@@ -1564,7 +1564,8 @@ tests += \
 	test-rlimit-util \
 	test-signal-util \
 	test-selinux \
-	test-sizeof
+	test-sizeof \
+	test-bpf
 
 if HAVE_ACL
 tests += \
@@ -2090,6 +2091,17 @@ test_sizeof_SOURCES = \
 
 test_sizeof_LDADD = \
 	libsystemd-shared.la
+
+test_bpf_SOURCES = \
+	src/test/test-bpf.c
+
+test_bpf_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(SECCOMP_CFLAGS) \
+	$(MOUNT_CFLAGS)
+
+test_bpf_LDADD = \
+	libcore.la
 
 BUILT_SOURCES += \
 	src/test/test-hashmap-ordered.c
