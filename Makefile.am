@@ -940,7 +940,9 @@ libbasic_la_SOURCES = \
 	src/basic/format-util.h \
 	src/basic/nss-util.h \
 	src/basic/bpf-program.c \
-	src/basic/bpf-program.h
+	src/basic/bpf-program.h \
+	src/basic/hosts-access-addr.c \
+	src/basic/hosts-access-addr.h
 
 nodist_libbasic_la_SOURCES = \
 	src/basic/errno-from-name.h \
