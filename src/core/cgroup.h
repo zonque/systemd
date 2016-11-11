@@ -21,9 +21,11 @@
 
 #include <stdbool.h>
 
+#include "bpf-program.h"
+#include "cgroup-util.h"
+#include "hosts-access-addr.h"
 #include "list.h"
 #include "time-util.h"
-#include "cgroup-util.h"
 
 typedef struct CGroupContext CGroupContext;
 typedef struct CGroupDeviceAllow CGroupDeviceAllow;
@@ -87,6 +89,7 @@ struct CGroupContext {
         bool blockio_accounting;
         bool memory_accounting;
         bool tasks_accounting;
+        bool ip_accounting;
 
         /* For unified hierarchy */
         uint64_t cpu_weight;
@@ -102,6 +105,20 @@ struct CGroupContext {
         uint64_t memory_high;
         uint64_t memory_max;
         uint64_t memory_swap_max;
+
+        int ip_accounting_ingress_map_fd;
+        int ip_accounting_egress_map_fd;
+
+        int ipv4_allow_map_fd;
+        int ipv6_allow_map_fd;
+        int ipv4_deny_map_fd;
+        int ipv6_deny_map_fd;
+
+        LIST_HEAD(HostsAccessAddress, ip_hosts_allow);
+        LIST_HEAD(HostsAccessAddress, ip_hosts_deny);
+
+        BPFProgram *ip_bpf_ingress;
+        BPFProgram *ip_bpf_egress;
 
         /* For legacy hierarchies */
         uint64_t cpu_shares;

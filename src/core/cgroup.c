@@ -77,6 +77,13 @@ void cgroup_context_init(CGroupContext *c) {
         c->startup_blockio_weight = CGROUP_BLKIO_WEIGHT_INVALID;
 
         c->tasks_max = (uint64_t) -1;
+
+        c->ip_accounting_ingress_map_fd = -1;
+        c->ip_accounting_egress_map_fd = -1;
+        c->ipv4_allow_map_fd = -1;
+        c->ipv6_allow_map_fd = -1;
+        c->ipv4_deny_map_fd = -1;
+        c->ipv6_deny_map_fd = -1;
 }
 
 void cgroup_context_free_device_allow(CGroupContext *c, CGroupDeviceAllow *a) {
@@ -141,6 +148,23 @@ void cgroup_context_done(CGroupContext *c) {
 
         while (c->device_allow)
                 cgroup_context_free_device_allow(c, c->device_allow);
+
+        c->ip_bpf_ingress = bpf_program_free(c->ip_bpf_ingress);
+        c->ip_bpf_egress = bpf_program_free(c->ip_bpf_egress);
+
+        close(c->ip_accounting_ingress_map_fd);
+        close(c->ip_accounting_egress_map_fd);
+        close(c->ipv4_allow_map_fd);
+        close(c->ipv6_allow_map_fd);
+        close(c->ipv4_deny_map_fd);
+        close(c->ipv6_deny_map_fd);
+
+        c->ip_accounting_ingress_map_fd = -1;
+        c->ip_accounting_egress_map_fd = -1;
+        c->ipv4_allow_map_fd = -1;
+        c->ipv6_allow_map_fd = -1;
+        c->ipv4_deny_map_fd = -1;
+        c->ipv6_deny_map_fd = -1;
 }
 
 void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
