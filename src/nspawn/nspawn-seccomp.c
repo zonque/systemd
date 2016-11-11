@@ -48,9 +48,6 @@ static int seccomp_add_default_syscall_filter(scmp_filter_ctx ctx,
                 { 0,              SCMP_SYS(add_key)             }, /* keyring is not namespaced */
                 { 0,              SCMP_SYS(afs_syscall)         }, /* obsolete syscall */
                 { 0,              SCMP_SYS(bdflush)             },
-#ifdef __NR_bpf
-                { 0,              SCMP_SYS(bpf)                 },
-#endif
                 { 0,              SCMP_SYS(break)               }, /* obsolete syscall */
                 { 0,              SCMP_SYS(create_module)       }, /* obsolete syscall */
                 { 0,              SCMP_SYS(ftime)               }, /* obsolete syscall */
