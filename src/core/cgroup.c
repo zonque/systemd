@@ -663,6 +663,25 @@ static void cgroup_apply_unified_memory_limit(Unit *u, const char *file, uint64_
                               "Failed to set %s: %m", file);
 }
 
+static void cgroup_context_apply_firewall(Unit *u, CGroupContext *c) {
+        int r;
+        char *cg_path;
+
+        r = firewall_compile_for_cgroup_context(c);
+        if (r < 0) {
+                log_unit_warning_errno(u, r, "Failed to compile eBPF programs: %m");
+                return;
+        }
+
+        cg_path = strjoina("/sys/fs/cgroup/systemd/", u->cgroup_path);
+
+        r = firewall_install_for_cgroup_context(c, cg_path);
+        if (r < 0) {
+                log_unit_warning_errno(u, r, "Failed to install eBPF programs: %m");
+                return;
+        }
+}
+
 static void cgroup_context_apply(Unit *u, CGroupMask mask, ManagerState state) {
         const char *path;
         CGroupContext *c;
@@ -995,6 +1014,8 @@ static void cgroup_context_apply(Unit *u, CGroupMask mask, ManagerState state) {
                         log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
                                       "Failed to set pids.max: %m");
         }
+
+        cgroup_context_apply_firewall(u, c);
 }
 
 CGroupMask cgroup_context_get_mask(CGroupContext *c) {

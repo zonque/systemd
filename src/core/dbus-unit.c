@@ -692,6 +692,49 @@ int bus_unit_method_unref(sd_bus_message *message, void *userdata, sd_bus_error 
         return sd_bus_reply_method_return(message, NULL);
 }
 
+static int property_get_network_counter(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Unit *u = userdata;
+        uint64_t value = (uint64_t) -1;
+        CGroupContext *cc;
+        int r;
+
+        assert(bus);
+        assert(reply);
+        assert(property);
+        assert(u);
+
+        cc = unit_get_cgroup_context(u);
+        if (cc) {
+                uint64_t bytes, packets;
+                int fd;
+
+                if (startswith(property, "NetworkIngress"))
+                        fd = cc->ip_accounting_ingress_map_fd;
+                else
+                        fd = cc->ip_accounting_egress_map_fd;
+
+                if (fd >= 0) {
+                        r = firewall_read_accounting(fd, &bytes, &packets);
+                        if (r >= 0) {
+                                if (endswith(property, "Bytes"))
+                                        value = bytes;
+                                else
+                                        value = packets;
+                        }
+                }
+        }
+
+        return sd_bus_message_append(reply, "t", value);
+}
+
 const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
@@ -764,6 +807,10 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("StartLimitAction", "s", property_get_emergency_action, offsetof(Unit, start_limit_action), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RebootArgument", "s", NULL, offsetof(Unit, reboot_arg), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("InvocationID", "ay", bus_property_get_id128, offsetof(Unit, invocation_id), 0),
+        SD_BUS_PROPERTY("NetworkIngressBytes", "t", property_get_network_counter, 0, 0),
+        SD_BUS_PROPERTY("NetworkIngressPackets", "t", property_get_network_counter, 0, 0),
+        SD_BUS_PROPERTY("NetworkEgressBytes", "t", property_get_network_counter, 0, 0),
+        SD_BUS_PROPERTY("NetworkEgressPackets", "t", property_get_network_counter, 0, 0),
 
         SD_BUS_METHOD("Start", "s", "o", method_start, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Stop", "s", "o", method_stop, SD_BUS_VTABLE_UNPRIVILEGED),

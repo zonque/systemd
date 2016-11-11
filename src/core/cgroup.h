@@ -23,6 +23,7 @@
 
 #include "bpf-program.h"
 #include "cgroup-util.h"
+#include "firewall.h"
 #include "hosts-access-addr.h"
 #include "list.h"
 #include "time-util.h"

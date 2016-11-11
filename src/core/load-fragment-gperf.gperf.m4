@@ -157,6 +157,9 @@ $1.BlockIOWriteBandwidth,        config_parse_blockio_bandwidth,     0,         
 $1.TasksAccounting,              config_parse_bool,                  0,                             offsetof($1, cgroup_context.tasks_accounting)
 $1.TasksMax,                     config_parse_tasks_max,             0,                             offsetof($1, cgroup_context.tasks_max)
 $1.Delegate,                     config_parse_bool,                  0,                             offsetof($1, cgroup_context.delegate)
+$1.IPAccounting,                 config_parse_bool,                  0,                             offsetof($1, cgroup_context.ip_accounting)
+$1.IPHostsAllow,                 config_parse_hosts_access_address,  0,                             offsetof($1, cgroup_context.ip_hosts_allow)
+$1.IPHostsDeny,                  config_parse_hosts_access_address,  0,                             offsetof($1, cgroup_context.ip_hosts_deny)
 $1.NetClass,                     config_parse_warn_compat,           DISABLED_LEGACY,               0'
 )m4_dnl
 Unit.Description,                config_parse_unit_string_printf,    0,                             offsetof(Unit, description)
