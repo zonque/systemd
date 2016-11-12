@@ -335,6 +335,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>DefaultIPAccouting</varname></term>
+
+        <listitem><para>Configure the default IP network accounting setting,
+        as configured per-unit by
+        <varname>IPAccouting=</varname>. See
+        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details on the per-unit setting.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>DefaultTasksMax=</varname></term>
 
         <listitem><para>Configure the default value for the per-unit <varname>TasksMax=</varname> setting. See

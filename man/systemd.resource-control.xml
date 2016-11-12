@@ -474,6 +474,59 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>IPAccounting=</varname></term>
+
+        <listitem>
+          <para>Turn on network traffic accounting for packets sent and received over AF_INET and AF_INET6 sockets.
+          All such sockets in all tasks of the unit are accounted for.
+          </para>
+
+          <para>This setting is supported only if the systemd cgroup controller uses the unified hierarchy and if
+          the kernel supports attaching eBPF programs to cgroups (CONFIG_CGROUP_BPF).
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IPHostsAllow=<replaceable>ipaddr[/prefixlen]</replaceable></varname></term>
+        <term><varname>IPHostsDeny=<replaceable>ipaddr[/prefixlen]</replaceable></varname></term>
+
+        <listitem>
+          <para>Turn on network traffic filtering for packets sent and received over AF_INET and AF_INET6 sockets.
+            Each of these directives take a space separated list of IPv4 or IPv6 addresses, each with an optional
+            prefix length. If the latter is omitted, the address is considered a host address (ie, all bits in
+            the mask set to 1).
+          </para>
+
+          <para>Entires in this list are used to compile a eBPF programs for both ingress and egress, which are then
+            attached to the cgroup of the unit.
+          </para>
+
+          <para>
+            This filtering follows the principle of the access control language described in
+            <citerefentry><refentrytitle>hosts_access</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+            In particular, it implements the following set of rules.
+          </para>
+
+          <itemizedlist>
+            <listitem><para>Access will be granted when a destination/source address matches an entry in
+              the <varname>IPHostsAllow=</varname> setting.
+            </para></listitem>
+
+            <listitem><para>Otherwise, access will be denied when a destination/source address matches an
+              entry in the <varname>IPHostsDenyIngress=</varname> setting.
+            </para></listitem>
+
+            <listitem><para>Otherwise, access will be granted.</para></listitem>
+          </itemizedlist>
+
+          <para>These settings are supported only if the systemd cgroup controller uses the unified hierarchy and if
+          the kernel supports attaching eBPF programs to cgroups (<varname>CONFIG_CGROUP_BPF</varname>).
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>DeviceAllow=</varname></term>
 
         <listitem>
