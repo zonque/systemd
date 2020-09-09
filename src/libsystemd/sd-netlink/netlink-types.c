@@ -745,6 +745,15 @@ static const NLTypeSystem rtnl_qdisc_type_system = {
         .types = rtnl_qdisc_types,
 };
 
+static const NLType mdb_types[] = {
+        [MDBA_SET_ENTRY]     = { .size = sizeof(struct br_port_msg) },
+};
+
+static const NLTypeSystem rtnl_mdb_type_system = {
+        .count = ELEMENTSOF(mdb_types),
+        .types = mdb_types,
+};
+
 static const NLType rtnl_types[] = {
         [NLMSG_DONE]       = { .type = NETLINK_TYPE_NESTED, .type_system = &empty_type_system, .size = 0 },
         [NLMSG_ERROR]      = { .type = NETLINK_TYPE_NESTED, .type_system = &empty_type_system, .size = sizeof(struct nlmsgerr) },
@@ -773,6 +782,9 @@ static const NLType rtnl_types[] = {
         [RTM_NEWQDISC]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_qdisc_type_system, .size = sizeof(struct tcmsg) },
         [RTM_DELQDISC]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_qdisc_type_system, .size = sizeof(struct tcmsg) },
         [RTM_GETQDISC]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_qdisc_type_system, .size = sizeof(struct tcmsg) },
+        [RTM_NEWMDB]       = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_mdb_type_system, .size = sizeof(struct br_port_msg) },
+        [RTM_DELMDB]       = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_mdb_type_system, .size = sizeof(struct br_port_msg) },
+        [RTM_GETMDB]       = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_mdb_type_system, .size = sizeof(struct br_port_msg) },
 };
 
 const NLTypeSystem rtnl_type_system_root = {

@@ -45,6 +45,10 @@ static inline bool rtnl_message_type_is_qdisc(uint16_t type) {
         return IN_SET(type, RTM_NEWQDISC, RTM_DELQDISC, RTM_GETQDISC);
 }
 
+static inline bool rtnl_message_type_is_mdb(uint16_t type) {
+        return IN_SET(type, RTM_NEWMDB, RTM_DELMDB, RTM_GETTCLASS);
+}
+
 int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name);
 int rtnl_set_link_properties(sd_netlink **rtnl, int ifindex, const char *alias, const struct ether_addr *mac, uint32_t mtu);
 
