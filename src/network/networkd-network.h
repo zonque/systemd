@@ -18,6 +18,7 @@
 #include "networkd-dhcp4.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-fdb.h"
+#include "networkd-mdb.h"
 #include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-lldp-rx.h"
 #include "networkd-lldp-tx.h"
@@ -241,6 +242,7 @@ struct Network {
         LIST_HEAD(Route, static_routes);
         LIST_HEAD(NextHop, static_nexthops);
         LIST_HEAD(FdbEntry, static_fdb_entries);
+        LIST_HEAD(MdbEntry, static_mdb_entries);
         LIST_HEAD(IPv6ProxyNDPAddress, ipv6_proxy_ndp_addresses);
         LIST_HEAD(Neighbor, neighbors);
         LIST_HEAD(AddressLabel, address_labels);
@@ -252,6 +254,7 @@ struct Network {
         unsigned n_static_routes;
         unsigned n_static_nexthops;
         unsigned n_static_fdb_entries;
+        unsigned n_static_mdb_entries;
         unsigned n_ipv6_proxy_ndp_addresses;
         unsigned n_neighbors;
         unsigned n_address_labels;
@@ -263,6 +266,7 @@ struct Network {
         Hashmap *routes_by_section;
         Hashmap *nexthops_by_section;
         Hashmap *fdb_entries_by_section;
+        Hashmap *mdb_entries_by_section;
         Hashmap *neighbors_by_section;
         Hashmap *address_labels_by_section;
         Hashmap *prefixes_by_section;

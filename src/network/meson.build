@@ -67,6 +67,8 @@ sources = files('''
         networkd-dhcp6.h
         networkd-fdb.c
         networkd-fdb.h
+        networkd-mdb.c
+        networkd-mdb.h
         networkd-ipv4ll.c
         networkd-ipv4ll.h
         networkd-ipv6-proxy-ndp.c

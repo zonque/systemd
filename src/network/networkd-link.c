@@ -1152,6 +1152,19 @@ static int link_request_set_neighbors(Link *link) {
         return 0;
 }
 
+static int link_set_bridge_mdb(Link *link) {
+        MdbEntry *mdb_entry;
+        int r;
+
+        LIST_FOREACH(static_mdb_entries, mdb_entry, link->network->static_mdb_entries) {
+                r = mdb_entry_configure(link, mdb_entry);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Failed to add MAC entry to multicast group database: %m");
+        }
+
+        return 0;
+}
+
 static int address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
@@ -3386,6 +3399,10 @@ static int link_carrier_gained(Link *link) {
         }
 
         r = link_handle_bound_by_list(link);
+        if (r < 0)
+                return r;
+
+        r = link_set_bridge_mdb(link);
         if (r < 0)
                 return r;
 
